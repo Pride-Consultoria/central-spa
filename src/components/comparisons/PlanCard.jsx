@@ -1,4 +1,5 @@
 import { CheckCircle2, MoreVertical } from 'lucide-react';
+import IconButton from '../ui/IconButton';
 
 export default function PlanCard({
     logoUrl,
@@ -38,14 +39,9 @@ export default function PlanCard({
                     </div>
                 </div>
                 {onMenuToggle && (
-                    <button
-                        type="button"
-                        className="dash-icon-btn"
-                        aria-label="Abrir menu do plano"
-                        onClick={onMenuToggle}
-                    >
+                    <IconButton aria-label="Abrir menu do plano" onClick={onMenuToggle}>
                         <MoreVertical size={18} />
-                    </button>
+                    </IconButton>
                 )}
                 {menuContent}
             </div>

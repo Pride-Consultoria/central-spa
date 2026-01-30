@@ -6,3 +6,5 @@ export { default as Table } from './Table';
 export { default as Spinner } from './Spinner';
 export { default as EmptyState } from './EmptyState';
 export { default as Pill } from './Pill';
+export { default as IconButton } from './IconButton';
+export { DropdownContent, DropdownItem } from './Dropdown';

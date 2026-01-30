@@ -7,7 +7,6 @@ import Reference from './pages/Reference';
 import ComparisonPresentation from './pages/ComparisonPresentation';
 import ComparisonsList from './pages/ComparisonsList';
 import ComparisonCreate from './pages/ComparisonCreate';
-import ComparisonEditLegacyStyle from './pages/ComparisonEditLegacyStyle';
 import ComparisonEditPremium from './pages/ComparisonEditPremium';
 import PublicPresentation from './pages/PublicPresentation';
 import DashboardLayout from './layouts/DashboardLayout';

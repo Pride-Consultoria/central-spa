@@ -1,122 +1,58 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { CheckCircle2, MoreVertical, Building2, X, ArrowRight, GripVertical } from 'lucide-react';
+import { Building2, ArrowRight } from 'lucide-react';
 import {
     DndContext,
     closestCenter,
     PointerSensor,
     useSensor,
     useSensors,
-    DragOverlay,
 } from '@dnd-kit/core';
-import { rectSortingStrategy, SortableContext, useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { get, post } from '../services/api/client';
 import NetworkModal from '../components/presentation/NetworkModal';
-import Modal from '../components/ui/Modal';
 import Drawer from '../components/ui/Drawer';
+import ComparisonHeaderActions from '../components/comparisons/ComparisonHeaderActions';
+import ConfigDrawer from '../components/comparisons/ConfigDrawer';
+import LivesModal from '../components/comparisons/LivesModal';
+import PlansList from '../components/comparisons/PlansList';
+import useComparison from '../utils/useComparison';
+import useComparisonEditState from '../hooks/useComparisonEditState';
 import '../styles.css';
 
-const PlanSortableItem = ({ id, children }) => {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging, isOver } = useSortable({ id });
-
-    const style = {
-        transform: CSS.Transform.toString(transform),
-        transition: transition || 'transform 220ms ease, box-shadow 150ms ease',
-        cursor: isDragging ? 'grabbing' : 'grab',
-        zIndex: isDragging ? 30 : 1,
-    };
-
-    return (
-        <div
-            ref={setNodeRef}
-            style={style}
-            {...attributes}
-            {...listeners}
-            className={`group relative rounded-2xl border border-white/10 bg-[#0f1a2b] p-4 transition duration-200 ${
-                isDragging ? 'ring-2 ring-emerald-400/60 shadow-2xl scale-[1.02] opacity-95' : 'hover:border-white/30 hover:-translate-y-0.5'
-            } ${isOver ? 'ring-2 ring-blue-400/40' : ''}`}
-        >
-            <div
-                className="absolute top-2 left-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-white/70 opacity-0 transition group-hover:opacity-100"
-                title="Arraste para reordenar"
-            >
-                <GripVertical size={16} />
-            </div>
-            {children({ isDragging, isOver })}
-        </div>
-    );
+const PLAN_TYPE_LABELS = {
+    COM: 'Com coparticipação',
+    SEM: 'Sem coparticipação',
+    PARC: 'Parcial',
 };
 
 export default function ComparisonEditPremium() {
     const { id } = useParams();
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-    const [error, setError] = useState(null);
-    const [data, setData] = useState(null);
+    const { data, loading, error, saving, setError, save: persist } = useComparison(id);
     const [showHospitals, setShowHospitals] = useState(false);
-    const [showHeaderActions, setShowHeaderActions] = useState(false);
+    const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
     const [planMenuOpen, setPlanMenuOpen] = useState(null);
     const [saveMessage, setSaveMessage] = useState('');
-    const [activeId, setActiveId] = useState(null);
     const [showLivesModal, setShowLivesModal] = useState(false);
     const [showConfigDrawer, setShowConfigDrawer] = useState(false);
     const [showPlansDrawer, setShowPlansDrawer] = useState(false);
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
-    const [state, setState] = useState({
-        title: '',
-        modality: 'PME',
-        region_id: '',
-        lives_range: '',
-        type: '',
-        snapshot: {},
-        selections: [],
-        activeOperator: '',
-    });
-
-    useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            setError(null);
-            try {
-                const res = await get(`/comparisons/${id}/edit`);
-                const d = res.data;
-                setData(d);
-                setState((prev) => ({
-                    ...prev,
-                    title: d.comparison?.title || '',
-                    modality: d.comparison?.modality || 'PME',
-                    region_id: d.comparison?.region_id || d.regions?.[0]?.id || '',
-                    lives_range: d.comparison?.lives_range || d.livesRanges?.[0] || '',
-                    type: d.comparison?.type || (d.types ? Object.keys(d.types)[0] : ''),
-                    snapshot: d.existingSnapshot || {},
-                    selections: (d.existingSelections || []).map((s) => ({
-                        operator_id: s.operator_id,
-                        plan_id: s.plan_id,
-                        is_client_plan: !!s.is_client_plan,
-                        is_featured: !!s.is_featured,
-                    })),
-                    activeOperator: d.operators?.[0]?.id || '',
-                }));
-            } catch (err) {
-                setError(err.message || 'Erro ao carregar');
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchData();
-    }, [id]);
-
+    const {
+        state,
+        sortableIds,
+        totalVidas,
+        toggleSelection,
+        markClient,
+        markFeatured,
+        removeSelection,
+        updateSnapshot,
+        setActiveOperator,
+        updateField,
+        handleReorder,
+    } = useComparisonEditState(data);
     const operators = data?.operators || [];
     const faixas = data?.faixas || {};
-    const types = data?.types || {};
     const planOptions = data?.planOptions || {};
     const livesRanges = data?.livesRanges || [];
     const planValues = data?.planValues || [];
-    const sortableIds = useMemo(
-        () => state.selections.map((sel, idx) => `${sel.operator_id}-${sel.plan_id}-${idx}`),
-        [state.selections],
-    );
     const creatorRaw = data?.comparison?.created_by_name || data?.comparison?.created_by;
     const creator = creatorRaw && isNaN(Number(creatorRaw)) ? creatorRaw : 'Usuário';
     const createdAt = data?.comparison?.created_at;
@@ -142,71 +78,19 @@ export default function ComparisonEditPremium() {
             (s) => String(s.operator_id) === String(opId) && String(s.plan_id) === String(planId),
         );
 
-    const toggleSelection = (opId, planId) => {
-        setState((prev) => {
-            const exists = prev.selections.find(
-                (s) => String(s.operator_id) === String(opId) && String(s.plan_id) === String(planId),
-            );
-            if (exists) {
-                return {
-                    ...prev,
-                    selections: prev.selections.filter(
-                        (s) => !(String(s.operator_id) === String(opId) && String(s.plan_id) === String(planId)),
-                    ),
-                };
-            }
-            return {
-                ...prev,
-                selections: [
-                    ...prev.selections,
-                    { operator_id: opId, plan_id: planId, is_client_plan: false, is_featured: false },
-                ],
-            };
-        });
-    };
-
-    const markClient = (index) => {
-        setState((prev) => ({
-            ...prev,
-            selections: prev.selections.map((s, i) => ({ ...s, is_client_plan: i === index })),
-        }));
-    };
-
-    const markFeatured = (index) => {
-        setState((prev) => ({
-            ...prev,
-            selections: prev.selections.map((s, i) => ({ ...s, is_featured: i === index })),
-        }));
-    };
-
-    const removeSelection = (index) => {
-        setState((prev) => ({
-            ...prev,
-            selections: prev.selections.filter((_, i) => i !== index),
-        }));
-    };
-
-    const updateSnapshot = (key, value) => {
-        setState((prev) => ({
-            ...prev,
-            snapshot: { ...prev.snapshot, [key]: Number(value) || 0 },
-        }));
-    };
-
     const save = async (silent = false) => {
-        if (!silent) setSaving(true);
         setError(null);
+        const payload = {
+            title: state.title,
+            modality: state.modality,
+            region_id: state.region_id,
+            lives_range: state.lives_range,
+            type: state.type,
+            snapshot: state.snapshot,
+            comparisonPlans: state.selections,
+        };
         try {
-            const payload = {
-                title: state.title,
-                modality: state.modality,
-                region_id: state.region_id,
-                lives_range: state.lives_range,
-                type: state.type,
-                snapshot: state.snapshot,
-                comparisonPlans: state.selections,
-            };
-            await post(`/comparisons/${id}?_method=PUT`, payload);
+            await persist(payload, { silent });
             if (!silent) {
                 setSaveMessage('Salvo com sucesso');
                 setTimeout(() => setSaveMessage(''), 3000);
@@ -215,12 +99,8 @@ export default function ComparisonEditPremium() {
             if (!silent) {
                 setError(err.message || 'Erro ao salvar');
             }
-        } finally {
-            if (!silent) setSaving(false);
         }
     };
-
-    const totalVidas = Object.values(state.snapshot || {}).reduce((acc, val) => acc + Number(val || 0), 0);
 
     useEffect(() => {
         if (loading || !data) return;
@@ -237,12 +117,12 @@ export default function ComparisonEditPremium() {
         return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
     };
 
-    const computePlanTotal = (planId) => {
+    const computePlanTotal = (planId, forcedType = null) => {
         const pv = planValues.find(
             (p) =>
                 String(p.plan_id) === String(planId) &&
                 String(p.region_id) === String(state.region_id) &&
-                String(p.type) === String(state.type) &&
+                String(p.type) === String(forcedType ?? state.type) &&
                 String(p.lives_range) === String(state.lives_range),
         );
         if (!pv) return null;
@@ -255,153 +135,35 @@ export default function ComparisonEditPremium() {
         return total;
     };
 
-    const handleReorder = (from, to) => {
-        if (from === null || to === null || from === to) return;
-        setState((prev) => {
-            const arr = [...prev.selections];
-            const [moved] = arr.splice(from, 1);
-            arr.splice(to, 0, moved);
-            return { ...prev, selections: arr };
-        });
+    const computeTotalsForSelection = (sel) => {
+        const withCopay = computePlanTotal(sel?.plan_id, 'COM');
+        const partialCopay = computePlanTotal(sel?.plan_id, 'PARC');
+        const withoutCopay = computePlanTotal(sel?.plan_id, 'SEM');
+        // Se nÇœo encontrar planValues, mantemos qualquer valor vindo da API para evitar "ƒ?" inicial.
+        return {
+            with: withCopay ?? sel?.total_with_coparticipation ?? null,
+            partial: partialCopay ?? sel?.total_coparticipacao_parcial ?? null,
+            without: withoutCopay ?? sel?.total_without_coparticipation ?? null,
+        };
     };
 
-    const renderPlanCard = (sel, idx) => {
-        const plan = (planOptions[sel.operator_id] || []).find((p) => String(p.id) === String(sel.plan_id));
-        const operatorName = operators.find((o) => String(o.id) === String(sel.operator_id))?.name || '';
-        const hospitalsCount =
-            plan?.hospitals?.length ??
-            plan?.hospitals_count ??
-            plan?.hospitalsCount ??
-            sel.hospitals_count ??
-            0;
-        const total =
-            computePlanTotal(plan?.id ?? sel.plan_id) ??
-            sel.total ??
-            plan?.total ??
-            plan?.price ??
-            plan?.value ??
-            plan?.monthly_cost ??
-            sel.monthly_cost ??
-            null;
+    const calculateTotalForSelection = (sel) =>
+        computePlanTotal(sel?.plan_id) ??
+        sel?.total ??
+        sel?.price ??
+        sel?.value ??
+        sel?.monthly_cost ??
+        null;
 
-        return (
-            <>
-                <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="h-14 w-20 rounded-xl border border-white/5 bg-white/5 grid place-items-center overflow-hidden">
-                            {plan?.image ? (
-                                <img
-                                    src={plan.image.startsWith('http') ? plan.image : `/storage/${plan.image}`}
-                                    alt="logo plano"
-                                    className="max-h-full max-w-full object-contain"
-                                />
-                            ) : (
-                                <span className="text-sm text-white/70">{operatorName.slice(0, 2) || 'PL'}</span>
-                            )}
-                        </div>
-                        <div>
-                            <div className="text-sm text-white/60 uppercase tracking-[0.08em]">
-                                {operatorName || 'Operadora'}
-                            </div>
-                            <div className="text-lg font-semibold leading-tight">{plan?.name || 'Plano'}</div>
-                            <div className="text-xs text-white/50">{types[state.type] || state.type || '-'}</div>
-                        </div>
-                    </div>
-                    <div className="relative">
-                        <button
-                            type="button"
-                            className="text-white/50 hover:text-white transition"
-                            onClick={() =>
-                                setPlanMenuOpen((prev) =>
-                                    prev === `${sel.operator_id}-${sel.plan_id}` ? null : `${sel.operator_id}-${sel.plan_id}`,
-                                )
-                            }
-                        >
-                            <MoreVertical size={18} />
-                        </button>
-                        {planMenuOpen === `${sel.operator_id}-${sel.plan_id}` && (
-                            <div className="absolute right-0 z-30 mt-2 w-44 rounded-lg border border-white/10 bg-[#0f172a] shadow-xl">
-                                <button
-                                    className="w-full px-3 py-2 text-left text-xs font-semibold text-white hover:bg-white/5"
-                                    type="button"
-                                    onClick={() => {
-                                        markClient(idx);
-                                        setPlanMenuOpen(null);
-                                    }}
-                                >
-                                    Plano do cliente
-                                </button>
-                                <button
-                                    className="w-full px-3 py-2 text-left text-xs font-semibold text-white hover:bg-white/5"
-                                    type="button"
-                                    onClick={() => {
-                                        markFeatured(idx);
-                                        setPlanMenuOpen(null);
-                                    }}
-                                >
-                                    Indicação Pride
-                                </button>
-                                <button
-                                    className="w-full px-3 py-2 text-left text-xs font-semibold text-white hover:bg-white/5"
-                                    type="button"
-                                    onClick={() => {
-                                        removeSelection(idx);
-                                        setPlanMenuOpen(null);
-                                    }}
-                                >
-                                    Remover
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                <div className="mt-3 space-y-2 text-sm text-white/70">
-                    <div className="flex items-center justify-between">
-                        <span className="text-white/50">Modalidade</span>
-                        <span className="font-semibold text-white">{state.modality || '-'}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <span className="text-white/50">Faixa</span>
-                        <span className="font-semibold text-white">
-                            {state.lives_range ||
-                                livesRanges.find((lr) => lr === state.lives_range) ||
-                                livesRanges[0] ||
-                                '-'}
-                        </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <span className="text-white/50">Hospitais</span>
-                        <span className="font-semibold text-white">
-                            {hospitalsCount > 0 ? `${hospitalsCount} hospitais` : 'Hospitais não informados'}
-                        </span>
-                    </div>
-                </div>
-
-                <div className="mt-4 flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-emerald-400">
-                        <CheckCircle2 size={18} />
-                        <span className="text-sm font-semibold">Selecionado</span>
-                    </div>
-                    <div className="text-base font-semibold text-white">
-                        {total ? `${formatCurrency(total)}` : 'R$ 0,00'}
-                    </div>
-                </div>
-
-                <div className="mt-4 flex flex-wrap gap-2">
-                    {sel.is_client_plan && (
-                        <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300">
-                            Plano do cliente
-                        </span>
-                    )}
-                    {sel.is_featured && (
-                        <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs text-blue-300">
-                            Indicação Pride
-                        </span>
-                    )}
-                </div>
-            </>
-        );
+    const copyPresentationLink = async () => {
+        const url = `${window.location.origin}/app/comparisons/${id}/presentation`;
+        try {
+            await navigator.clipboard.writeText(url);
+        } catch (err) {
+            // fallback silencioso
+        } finally {
+            setHeaderMenuOpen(false);
+        }
     };
 
     if (loading) return <div className="muted p-4">Carregando...</div>;
@@ -419,74 +181,23 @@ export default function ComparisonEditPremium() {
                 <header className="relative mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div className="space-y-1">
                         <div className="text-xs font-bold uppercase tracking-[0.18em] text-white/60">
-                            Comparacao #{id}
+                            Comparação #{id}
                         </div>
                         <h1 className="text-3xl font-bold leading-tight">{state.title || 'Sem título'}</h1>
                         {/* textos removidos conforme solicitação */}
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <button
-                                className="rounded-lg border border-white/15 bg-[#0d1526] px-4 py-2 text-sm font-semibold text-white transition hover:border-white/25 hover:bg-[#101a30]"
-                                type="button"
-                                onClick={() => setShowLivesModal(true)}
-                            >
-                                Editar vidas
-                            </button>
-                            <button
-                                className="rounded-lg border border-[#9fb5ff]/70 bg-[#1a2540] px-4 py-2 text-sm font-semibold text-[#dbe6ff] transition hover:border-[#c1d3ff] hover:bg-[#1f2c4d]"
-                                type="button"
-                                onClick={() => setShowConfigDrawer(true)}
-                            >
-                                Editar configurações
-                            </button>
-                            <button
-                                className="rounded-lg border border-white/15 bg-[#0d1526] px-4 py-2 text-sm font-semibold text-white transition hover:border-white/25 hover:bg-[#101a30]"
-                                type="button"
-                                onClick={() => setShowPlansDrawer(true)}
-                            >
-                                Escolher planos
-                            </button>
-                        </div>
-                        <button
-                            className="inline-flex items-center gap-2 rounded-lg bg-white text-slate-900 px-4 py-2 text-sm font-semibold border border-white/70 transition hover:border-white hover:bg-white/90 disabled:opacity-60"
-                            type="button"
-                            onClick={() => save()}
-                            disabled={saving}
-                        >
-                            {saving ? 'Salvando...' : 'Continuar'}
-                            <ArrowRight size={16} />
-                        </button>
-                        <button
-                            className="rounded-lg px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
-                            type="button"
-                            onClick={() => setShowHeaderActions((prev) => !prev)}
-                        >
-                            <MoreVertical size={18} />
-                        </button>
-                        {showHeaderActions && (
-                            <div className="absolute right-4 top-16 z-20 w-52 rounded-lg border border-white/10 bg-[#0f172a] shadow-xl">
-                                <div className="flex flex-col text-sm text-white/80">
-                                    <a
-                                        href={`/app/comparisons/${id}/presentation`}
-                                        className="px-3 py-2 hover:bg-white/5"
-                                        onClick={() => setShowHeaderActions(false)}
-                                    >
-                                        Ver apresentação (SPA)
-                                    </a>
-                                    <a
-                                        href={`/comparisons/${id}/edit`}
-                                        className="px-3 py-2 hover:bg-white/5"
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        onClick={() => setShowHeaderActions(false)}
-                                    >
-                                        Editar no legacy
-                                    </a>
-                                </div>
-                            </div>
-                        )}
-                    </div>
+                    <ComparisonHeaderActions
+                        id={id}
+                        state={state}
+                        saving={saving}
+                        onSave={() => save()}
+                        onEditLives={() => setShowLivesModal(true)}
+                        onEditConfig={() => setShowConfigDrawer(true)}
+                        onEditPlans={() => setShowPlansDrawer(true)}
+                        headerMenuOpen={headerMenuOpen}
+                        setHeaderMenuOpen={setHeaderMenuOpen}
+                        copyPresentationLink={copyPresentationLink}
+                    />
                 </header>
 
                 <div className="grid gap-4 lg:grid-cols-[2fr_360px]">
@@ -498,12 +209,26 @@ export default function ComparisonEditPremium() {
                                     {state.selections.length} plano(s)
                                 </span>
                             </div>
-                            <DndContext
+                            <PlansList
+                                sortableIds={sortableIds}
+                                selections={state.selections}
+                                planOptions={planOptions}
+                                operators={operators}
+                                types={PLAN_TYPE_LABELS}
+                                stateType={state.type}
+                                modality={state.modality}
+                                livesRange={state.lives_range}
+                                planMenuOpen={planMenuOpen}
+                                setPlanMenuOpen={setPlanMenuOpen}
+                                onMarkClient={markClient}
+                                onMarkFeatured={markFeatured}
+                                onRemove={removeSelection}
+                                livesRanges={livesRanges}
+                                formatCurrency={formatCurrency}
+                                totalFor={calculateTotalForSelection}
+                                computeTotals={computeTotalsForSelection}
                                 sensors={sensors}
-                                collisionDetection={closestCenter}
-                                onDragStart={({ active }) => setActiveId(active.id)}
                                 onDragEnd={({ active, over }) => {
-                                    setActiveId(null);
                                     if (!over) return;
                                     const oldIndex = sortableIds.indexOf(active.id);
                                     const newIndex = sortableIds.indexOf(over.id);
@@ -511,38 +236,9 @@ export default function ComparisonEditPremium() {
                                         handleReorder(oldIndex, newIndex);
                                     }
                                 }}
-                                onDragCancel={() => setActiveId(null)}
-                            >
-                                <SortableContext items={sortableIds} strategy={rectSortingStrategy}>
-                                    <div className={`grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${activeId ? 'opacity-90' : ''}`}>
-                                        {state.selections.map((sel, idx) => (
-                                            <PlanSortableItem key={sortableIds[idx]} id={sortableIds[idx]}>
-                                                {() => renderPlanCard(sel, idx)}
-                                            </PlanSortableItem>
-                                        ))}
-                                        {state.selections.length === 0 && (
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowPlansDrawer(true)}
-                                                className="w-full rounded-2xl border border-dashed border-white/20 p-6 text-center text-white/60 hover:border-white/40 hover:text-white transition"
-                                            >
-                                                Nenhum plano selecionado
-                                            </button>
-                                        )}
-                                    </div>
-                                </SortableContext>
-                                <DragOverlay>
-                                    {activeId ? (
-                                        <div className="rounded-2xl border border-white/10 bg-[#0f1a2b] p-4 shadow-2xl opacity-90">
-                                            {(() => {
-                                                const idx = sortableIds.indexOf(activeId);
-                                                const item = state.selections[idx];
-                                                return item ? renderPlanCard(item, idx) : null;
-                                            })()}
-                                        </div>
-                                    ) : null}
-                                </DragOverlay>
-                            </DndContext>
+                                DndContext={DndContext}
+                                closestCenter={closestCenter}
+                            />
                         </div>
 
                         {false && (
@@ -564,7 +260,7 @@ export default function ComparisonEditPremium() {
                                                     ? 'border-emerald-400/60 bg-emerald-500/10 text-white'
                                                     : 'border-white/10 bg-white/5 text-white/80 hover:border-white/20 hover:bg-white/10'
                                             }`}
-                                            onClick={() => setState({ ...state, activeOperator: op.id })}
+                                    onClick={() => setActiveOperator(op.id)}
                                         >
                                             <div className="flex items-center gap-3">
                                                 <div className="h-10 w-10 rounded-lg border border-white/10 bg-white/5 grid place-items-center overflow-hidden">
@@ -661,7 +357,7 @@ export default function ComparisonEditPremium() {
                             </div>
                             <div className="flex items-center justify-between">
                                 <span className="text-white/60">Tipo</span>
-                                <span className="font-semibold text-white">{types[state.type] || state.type || '-'}</span>
+                                <span className="font-semibold text-white">{PLAN_TYPE_LABELS[state.type] || state.type || '-'}</span>
                             </div>
                             <div className="h-px bg-white/10" />
                             <div className="text-xs text-white/50">
@@ -700,122 +396,21 @@ export default function ComparisonEditPremium() {
                 <NetworkModal open={showHospitals} comparisonId={id} onClose={() => setShowHospitals(false)} />
             )}
 
-            <Modal open={showLivesModal} onClose={() => setShowLivesModal(false)} title="Distribuição de vidas">
-                <div className="grid lg:grid-cols-[1.4fr_0.8fr] gap-4">
-                    <div className="space-y-3">
-                        <div className="space-y-1">
-                            <label className="text-sm font-semibold text-white">Distribuição</label>
-                            <select
-                                className="w-full rounded-xl border border-white/10 bg-[#0f172a] px-3 py-3 text-white outline-none focus:border-white/30"
-                                value="Geral"
-                                readOnly
-                            >
-                                <option>Geral</option>
-                            </select>
-                        </div>
-                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-2">
-                            {Object.entries(faixas).map(([key, label]) => (
-                                <label key={key} className="space-y-1">
-                                    <span className="text-xs font-semibold text-white/70">{label}</span>
-                                    <input
-                                        className="w-full rounded-xl border border-white/10 bg-[#0f172a] px-3 py-2.5 text-white outline-none focus:border-white/30"
-                                        type="number"
-                                        min="0"
-                                        value={state.snapshot[key] || 0}
-                                        onChange={(e) => updateSnapshot(key, e.target.value)}
-                                    />
-                                </label>
-                            ))}
-                        </div>
-                        <div className="flex justify-start">
-                            <button
-                                className="rounded-lg border border-white/15 bg-white px-5 py-2.5 text-sm font-semibold text-[#0b1220] transition hover:border-white/30 hover:bg-white"
-                                type="button"
-                                onClick={() => setShowLivesModal(false)}
-                            >
-                                Confirmar
-                            </button>
-                        </div>
-                    </div>
-                    <div className="rounded-2xl border border-white/10 bg-[#0f172a] p-4">
-                        <h4 className="text-base font-semibold text-white">Quantidade de vidas</h4>
-                        <p className="mt-2 text-sm text-white/70">
-                            Informe a quantidade de vidas por faixa etária ou utilize o conversor de datas de nascimento.
-                        </p>
-                    </div>
-                </div>
-            </Modal>
+            <LivesModal
+                open={showLivesModal}
+                onClose={() => setShowLivesModal(false)}
+                faixas={faixas}
+                snapshot={state.snapshot}
+                updateSnapshot={updateSnapshot}
+            />
 
-            <Drawer open={showConfigDrawer} onClose={() => setShowConfigDrawer(false)} title="Configuração do plano" side="left">
-                <div className="space-y-3">
-                    <label className="space-y-1 text-sm text-white/80">
-                        <span className="font-semibold">Modalidade*</span>
-                        <select
-                            className="w-full rounded-xl border border-white/10 bg-[#0f172a] px-3 py-2.5 text-white outline-none focus:border-white/30"
-                            value={state.modality}
-                            onChange={(e) => setState({ ...state, modality: e.target.value })}
-                        >
-                            {(data.modalities || []).map((m) => (
-                                <option key={m} value={m}>
-                                    {m}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-                    <label className="space-y-1 text-sm text-white/80">
-                        <span className="font-semibold">Região*</span>
-                        <select
-                            className="w-full rounded-xl border border-white/10 bg-[#0f172a] px-3 py-2.5 text-white outline-none focus:border-white/30"
-                            value={state.region_id}
-                            onChange={(e) => setState({ ...state, region_id: e.target.value })}
-                        >
-                            {data.regions?.map((r) => (
-                                <option key={r.id} value={r.id}>
-                                    {r.name}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-                    <label className="space-y-1 text-sm text-white/80">
-                        <span className="font-semibold">Faixa de Vidas*</span>
-                        <select
-                            className="w-full rounded-xl border border-white/10 bg-[#0f172a] px-3 py-2.5 text-white outline-none focus:border-white/30"
-                            value={state.lives_range}
-                            onChange={(e) => setState({ ...state, lives_range: e.target.value })}
-                        >
-                            {data.livesRanges?.map((lr) => (
-                                <option key={lr} value={lr}>
-                                    {lr}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-                    <label className="space-y-1 text-sm text-white/80">
-                        <span className="font-semibold">Tipo de Plano*</span>
-                        <select
-                            className="w-full rounded-xl border border-white/10 bg-[#0f172a] px-3 py-2.5 text-white outline-none focus:border-white/30"
-                            value={state.type}
-                            onChange={(e) => setState({ ...state, type: e.target.value })}
-                        >
-                            {Object.entries(types || {}).map(([key, label]) => (
-                                <option key={key} value={key}>
-                                    {label}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-                    <div className="pt-2">
-                        <button
-                            className="group w-full inline-flex items-center justify-center gap-2 rounded-lg bg-white text-slate-900 px-5 py-2.5 text-sm font-semibold border border-white/70 transition hover:border-white hover:bg-white/90 disabled:opacity-60"
-                            type="button"
-                            onClick={() => setShowConfigDrawer(false)}
-                        >
-                            Continuar
-                            <ArrowRight size={16} className="opacity-0 transition-opacity group-hover:opacity-100" />
-                        </button>
-                    </div>
-                </div>
-            </Drawer>
+            <ConfigDrawer
+                open={showConfigDrawer}
+                onClose={() => setShowConfigDrawer(false)}
+                state={state}
+                updateField={updateField}
+                data={data || {}}
+            />
 
             <Drawer open={showPlansDrawer} onClose={() => setShowPlansDrawer(false)} title="Escolher planos" side="left" width="80vw">
                 <div className="grid lg:grid-cols-[320px_1fr] gap-4">
@@ -871,7 +466,7 @@ export default function ComparisonEditPremium() {
                                             ? 'border-emerald-400/60 bg-emerald-500/10 text-white'
                                             : 'border-white/10 bg-white/5 text-white/80 hover:border-white/20 hover:bg-white/10'
                                     }`}
-                                    onClick={() => setState({ ...state, activeOperator: op.id })}
+                                    onClick={() => setActiveOperator(op.id)}
                                 >
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-3">
