@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { Building2, ArrowRight } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { CheckCircle2, MoreVertical, Building2, UserCheck, Star, Trash2, ArrowRight } from 'lucide-react';
 import {
     DndContext,
     closestCenter,
@@ -8,12 +8,15 @@ import {
     useSensor,
     useSensors,
 } from '@dnd-kit/core';
-import NetworkModal from '../components/presentation/NetworkModal';
+import { rectSortingStrategy, SortableContext } from '@dnd-kit/sortable';
+import IconButton from '../components/ui/IconButton';
 import Drawer from '../components/ui/Drawer';
+import { DropdownContent, DropdownItem } from '../components/ui/Dropdown';
 import ComparisonHeaderActions from '../components/comparisons/ComparisonHeaderActions';
 import ConfigDrawer from '../components/comparisons/ConfigDrawer';
 import LivesModal from '../components/comparisons/LivesModal';
 import PlansList from '../components/comparisons/PlansList';
+import { deleteComparison } from '../services/comparisons';
 import useComparison from '../utils/useComparison';
 import useComparisonEditState from '../hooks/useComparisonEditState';
 import '../styles.css';
@@ -25,9 +28,10 @@ const PLAN_TYPE_LABELS = {
 };
 
 export default function ComparisonEditPremium() {
+    const navigate = useNavigate();
     const { id } = useParams();
     const { data, loading, error, saving, setError, save: persist } = useComparison(id);
-    const [showHospitals, setShowHospitals] = useState(false);
+    const [deletingComparison, setDeletingComparison] = useState(false);
     const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
     const [planMenuOpen, setPlanMenuOpen] = useState(null);
     const [saveMessage, setSaveMessage] = useState('');
@@ -48,6 +52,19 @@ export default function ComparisonEditPremium() {
         updateField,
         handleReorder,
     } = useComparisonEditState(data);
+    const handleDelete = async () => {
+        if (!window.confirm('Deseja excluir esta comparação?')) return;
+        setDeletingComparison(true);
+        setError(null);
+        try {
+            await deleteComparison(id);
+            navigate('/app/comparisons');
+        } catch (err) {
+            setError(err.message || 'Erro ao deletar comparação.');
+        } finally {
+            setDeletingComparison(false);
+        }
+    };
     const operators = data?.operators || [];
     const faixas = data?.faixas || {};
     const planOptions = data?.planOptions || {};
@@ -155,8 +172,26 @@ export default function ComparisonEditPremium() {
         sel?.monthly_cost ??
         null;
 
+    const buildReactPresentationLink = () => {
+        const signatureUrl = data?.links?.apiPresentation || data?.links?.presentation;
+        if (signatureUrl) {
+            try {
+                const parsed = new URL(signatureUrl);
+                const signature = parsed.searchParams.get('signature');
+                if (signature) {
+                    return `${window.location.origin}/comparisons/${id}/presentation?signature=${encodeURIComponent(
+                        signature,
+                    )}`;
+                }
+            } catch {
+                // ignore and fallback
+            }
+        }
+        return `${window.location.origin}/comparisons/${id}/presentation`;
+    };
+
     const copyPresentationLink = async () => {
-        const url = `${window.location.origin}/app/comparisons/${id}/presentation`;
+        const url = buildReactPresentationLink();
         try {
             await navigator.clipboard.writeText(url);
         } catch (err) {
@@ -197,6 +232,8 @@ export default function ComparisonEditPremium() {
                         headerMenuOpen={headerMenuOpen}
                         setHeaderMenuOpen={setHeaderMenuOpen}
                         copyPresentationLink={copyPresentationLink}
+                        deleting={deletingComparison}
+                        onDelete={handleDelete}
                     />
                 </header>
 
@@ -392,10 +429,6 @@ export default function ComparisonEditPremium() {
                 )}
             </div>
 
-            {showHospitals && (
-                <NetworkModal open={showHospitals} comparisonId={id} onClose={() => setShowHospitals(false)} />
-            )}
-
             <LivesModal
                 open={showLivesModal}
                 onClose={() => setShowLivesModal(false)}
@@ -532,7 +565,6 @@ export default function ComparisonEditPremium() {
                 </div>
             </Drawer>
 
-            {error && <div className="alert">{error}</div>}
         </div>
     );
 }

@@ -19,9 +19,17 @@ const App = () => {
         <Routes>
             {/* Public presentation */}
             <Route
+                path="/comparisons/:id/presentation"
+                element={
+                    <PublicLayout fullWidth>
+                        <PublicPresentation />
+                    </PublicLayout>
+                }
+            />
+            <Route
                 path="/p/:id"
                 element={
-                    <PublicLayout>
+                    <PublicLayout fullWidth>
                         <PublicPresentation />
                     </PublicLayout>
                 }

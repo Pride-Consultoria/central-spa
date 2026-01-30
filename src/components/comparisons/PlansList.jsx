@@ -182,7 +182,7 @@ export default function PlansList({
                                                                 setPlanMenuOpen(null);
                                                             }}
                                                         >
-                                                            <Trash2 size={14} />
+                                                        <Trash2 size={14} className="delete-icon" />
                                                             <span>Remover</span>
                                                         </DropdownItem>
                                                     </DropdownContent>

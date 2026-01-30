@@ -1,6 +1,6 @@
 import IconButton from '../ui/IconButton';
 import { DropdownContent, DropdownItem } from '../ui/Dropdown';
-import { ArrowRight, MoreVertical, Pencil, Printer, Link as LinkIcon } from 'lucide-react';
+import { ArrowRight, MoreVertical, Printer, Link as LinkIcon, Trash2 } from 'lucide-react';
 
 export default function ComparisonHeaderActions({
     id,
@@ -13,6 +13,8 @@ export default function ComparisonHeaderActions({
     headerMenuOpen,
     setHeaderMenuOpen,
     copyPresentationLink,
+    onDelete,
+    deleting,
 }) {
     return (
         <div className="flex flex-wrap items-center gap-2">
@@ -57,12 +59,6 @@ export default function ComparisonHeaderActions({
             {headerMenuOpen && (
                 <DropdownContent positionClass="absolute right-4 top-16 z-20" widthClass="w-56">
                     <div className="flex flex-col text-sm text-white/90">
-                        <DropdownItem onClick={() => setHeaderMenuOpen(false)}>
-                            <span className="flex items-center gap-2">
-                                <Pencil size={16} />
-                                Editar
-                            </span>
-                        </DropdownItem>
                         <DropdownItem
                             onClick={() => {
                                 window.print();
@@ -83,6 +79,19 @@ export default function ComparisonHeaderActions({
                             <span className="flex items-center gap-2">
                                 <LinkIcon size={16} />
                                 Copiar link apresentação
+                            </span>
+                        </DropdownItem>
+                        <DropdownItem
+                            className="text-rose-400/90 hover:bg-rose-500/10"
+                            disabled={deleting}
+                            onClick={() => {
+                                setHeaderMenuOpen(false);
+                                onDelete?.();
+                            }}
+                        >
+                            <span className="flex items-center gap-2">
+                                <Trash2 size={16} className="delete-icon" />
+                                {deleting ? 'Deletando...' : 'Deletar'}
                             </span>
                         </DropdownItem>
                     </div>
