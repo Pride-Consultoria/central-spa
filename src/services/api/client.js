@@ -14,16 +14,19 @@ export const setAuthToken = (token) => {
 
 async function request(path, options = {}) {
     const method = (options.method || 'GET').toUpperCase();
+    const { headers: customHeaders = {}, signal, ...rest } = options;
 
     const resp = await fetch(`${API_BASE}${path}`, {
+        method,
         credentials: 'omit',
         headers: {
             Accept: 'application/json',
             'Content-Type': 'application/json',
             ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-            ...(options.headers || {}),
+            ...customHeaders,
         },
-        ...options,
+        signal,
+        ...rest,
     });
 
     let body = null;
@@ -44,8 +47,11 @@ async function request(path, options = {}) {
     return body;
 }
 
-export const get = (path) => request(path, { method: 'GET' });
-export const post = (path, data) => request(path, { method: 'POST', body: JSON.stringify(data || {}) });
-export const del = (path) => request(path, { method: 'DELETE' });
+export const get = (path, options = {}) => request(path, { method: 'GET', ...options });
+export const post = (path, data, options = {}) =>
+    request(path, { method: 'POST', body: JSON.stringify(data || {}), ...options });
+export const put = (path, data, options = {}) =>
+    request(path, { method: 'PUT', body: JSON.stringify(data || {}), ...options });
+export const del = (path, options = {}) => request(path, { method: 'DELETE', ...options });
 
 export default request;

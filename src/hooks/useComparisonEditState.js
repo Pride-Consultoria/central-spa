@@ -6,6 +6,10 @@ const initialState = {
     region_id: '',
     lives_range: '',
     type: 'COM',
+    clientId: '',
+    clientName: '',
+    clientExternalId: '',
+    video_url: '',
     snapshot: {},
     selections: [],
     activeOperator: '',
@@ -104,13 +108,16 @@ export default function useComparisonEditState(data) {
         if (!data) return;
         dispatch({
             type: 'initialize',
-            payload: {
-                title: data.comparison?.title || '',
-                modality: data.comparison?.modality || 'PME',
-                region_id: data.comparison?.region_id || data.regions?.[0]?.id || '',
-                lives_range: data.comparison?.lives_range || data.livesRanges?.[0] || '',
-                type: data.comparison?.type || 'COM',
-                snapshot: data.existingSnapshot || {},
+                payload: {
+                    title: data.comparison?.title || '',
+                    modality: data.comparison?.modality || 'PME',
+                    region_id: data.comparison?.region_id || data.regions?.[0]?.id || '',
+                    lives_range: data.comparison?.lives_range || data.livesRanges?.[0] || '',
+                    type: data.comparison?.type || 'COM',
+                    clientId: data.comparison?.client_id || '',
+                    clientName: data.comparison?.client_name || '',
+                    clientExternalId: data.comparison?.client_external_id || '',
+                    snapshot: data.existingSnapshot || {},
                 selections: (data.existingSelections || []).map((s) => ({
                     operator_id: s.operator_id,
                     plan_id: s.plan_id,
@@ -120,6 +127,7 @@ export default function useComparisonEditState(data) {
                     total_coparticipacao_parcial: s.total_coparticipacao_parcial ?? null,
                     total_without_coparticipation: s.total_without_coparticipation ?? null,
                 })),
+                video_url: data?.comparison?.presentation_video_url || '',
                 activeOperator: data.operators?.[0]?.id || '',
             },
         });

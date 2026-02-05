@@ -46,6 +46,28 @@ export const deleteComparison = (id) => {
     return del(`/comparisons/${id}`);
 };
 
+const unwrapApiResponse = (body) => {
+    if (body && typeof body === 'object' && Object.prototype.hasOwnProperty.call(body, 'data')) {
+        return body.data;
+    }
+    return body;
+};
+
+export const generateComparisonPdf = async (id, payload = {}, options = {}) => {
+    const body = await post(`/comparisons/${id}/pdf`, payload, options);
+    return unwrapApiResponse(body);
+};
+
+export const fetchComparisonPdf = async (id, options = {}) => {
+    const body = await get(`/comparisons/${id}/pdf`, options);
+    return unwrapApiResponse(body);
+};
+
+export const sendComparisonPdfEmail = async (id, payload) => {
+    const body = await post(`/comparisons/${id}/pdf/email`, payload);
+    return unwrapApiResponse(body);
+};
+
 export default {
     fetchComparisonEdit,
     updateComparison,
@@ -53,4 +75,7 @@ export default {
     listComparisons,
     fetchComparisonPresentationLink,
     deleteComparison,
+    generateComparisonPdf,
+    fetchComparisonPdf,
+    sendComparisonPdfEmail,
 };

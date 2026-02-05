@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { get, post, setAuthToken } from '../services/api/client';
 
 export default function Login() {
@@ -8,6 +8,7 @@ export default function Login() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(false);
+    const [remember, setRemember] = useState(false);
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
@@ -21,7 +22,6 @@ export default function Login() {
             if (token) {
                 setAuthToken(token);
             }
-            await get('/me').catch(() => {});
             setSuccess(true);
             setTimeout(() => navigate('/app/dashboard'), 600);
         } catch (err) {
@@ -32,24 +32,62 @@ export default function Login() {
     };
 
     return (
-        <section className="card">
-            <h1>Login</h1>
-            <p>Fluxo de autenticação via token Bearer (stateless).</p>
-            <form onSubmit={handleSubmit} className="form">
-                <label>
-                    <span>Email</span>
-                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-                </label>
-                <label>
-                    <span>Senha</span>
-                    <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-                </label>
-                <button type="submit" disabled={loading}>
-                    {loading ? 'Entrando...' : 'Entrar'}
-                </button>
-                {error && <div className="alert">{error}</div>}
-                {success && <div className="success">Login realizado. Redirecionando para o dashboard...</div>}
-            </form>
-        </section>
+        <main className="login-page">
+            <div className="login-board">
+                <div className="login-board__illustration">
+                    <img src="/storage/logo-pride-branco.svg" alt="Pride logo" className="login-logo" />
+                </div>
+                <section className="login-board__form">
+                    <div className="login-form__header">
+                        <h1>Log In</h1>
+                        <p>Entre com seu e-mail e senha para continuar.</p>
+                    </div>
+                    <form onSubmit={handleSubmit} className="login-form" autoComplete="off">
+                        <div className="login-form__input">
+                            <label>
+                                <span>Email</span>
+                                <input
+                                    type="email"
+                                    placeholder="exemplo@seudominio.com"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    required
+                                />
+                            </label>
+                        </div>
+                        <div className="login-form__input">
+                            <label>
+                                <span>Senha</span>
+                                <input
+                                    type="password"
+                                    placeholder="••••••••"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                />
+                            </label>
+                        </div>
+                        <div className="login-form__actions">
+                            <label className="checkbox-inline">
+                                <input
+                                    type="checkbox"
+                                    checked={remember}
+                                    onChange={(e) => setRemember(e.target.checked)}
+                                />
+                                <span>Lembrar de mim</span>
+                            </label>
+                            <button type="submit" disabled={loading} className="login-submit">
+                                {loading ? 'Entrando...' : 'Log in'}
+                            </button>
+                        </div>
+                        {error && <div className="alert login-alert">{error}</div>}
+                        {success && <div className="success login-alert">Login realizado. Redirecionando...</div>}
+                    </form>
+                    <div className="login-card__link">
+                        <Link to="/register">Criar uma conta</Link>
+                    </div>
+                </section>
+            </div>
+        </main>
     );
 }

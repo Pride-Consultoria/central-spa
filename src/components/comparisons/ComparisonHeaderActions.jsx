@@ -3,7 +3,6 @@ import { DropdownContent, DropdownItem } from '../ui/Dropdown';
 import { ArrowRight, MoreVertical, Printer, Link as LinkIcon, Trash2 } from 'lucide-react';
 
 export default function ComparisonHeaderActions({
-    id,
     state,
     saving,
     onSave,
@@ -15,6 +14,7 @@ export default function ComparisonHeaderActions({
     copyPresentationLink,
     onDelete,
     deleting,
+    onGeneratePdf,
 }) {
     return (
         <div className="flex flex-wrap items-center gap-2">
@@ -61,13 +61,13 @@ export default function ComparisonHeaderActions({
                     <div className="flex flex-col text-sm text-white/90">
                         <DropdownItem
                             onClick={() => {
-                                window.print();
+                                onGeneratePdf?.();
                                 setHeaderMenuOpen(false);
                             }}
                         >
                             <span className="flex items-center gap-2">
                                 <Printer size={16} />
-                                Imprimir
+                                Gerar PDF
                             </span>
                         </DropdownItem>
                         <DropdownItem

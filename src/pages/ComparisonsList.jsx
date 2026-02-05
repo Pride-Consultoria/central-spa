@@ -1,13 +1,28 @@
 ﻿import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Pencil } from "lucide-react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import { Input, Table, Spinner, EmptyState, DropdownContent, DropdownItem } from "../components/ui";
 import IconButton from "../components/ui/IconButton";
+import { deleteComparison } from "../services/comparisons";
 import useComparisonsList from "../utils/useComparisonsList";
 
 export default function ComparisonsList() {
     const [openMenuId, setOpenMenuId] = useState(null);
-    const { data, loading, error, debounceSearch } = useComparisonsList();
+    const { data, loading, error, debounceSearch, fetchData } = useComparisonsList();
+    const [actionError, setActionError] = useState(null);
+
+    const handleDelete = async (comparisonId) => {
+        if (!window.confirm("Deseja excluir esta cotação?")) return;
+        setActionError(null);
+        try {
+            await deleteComparison(comparisonId);
+            await fetchData();
+        } catch (err) {
+            setActionError(err.message || "Erro ao excluir.");
+        } finally {
+            setOpenMenuId(null);
+        }
+    };
 
     useEffect(() => () => setOpenMenuId(null), []);
 
@@ -38,6 +53,10 @@ export default function ComparisonsList() {
                                 <Pencil size={16} />
                                 <span>Editar</span>
                             </DropdownItem>
+                            <DropdownItem as="button" onClick={() => handleDelete(row.id)} type="button">
+                                <Trash2 size={16} />
+                                <span>Excluir</span>
+                            </DropdownItem>
                         </DropdownContent>
                     )}
                 </div>
@@ -56,6 +75,7 @@ export default function ComparisonsList() {
             <div className="filters">
                 <Input label="Busca" placeholder="Título" onChange={(e) => debounceSearch(e.target.value)} />
             </div>
+            {actionError && <div className="alert">{actionError}</div>}
             {loading ? (
                 <Spinner />
             ) : error ? (

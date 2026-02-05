@@ -9,6 +9,8 @@ import ComparisonsList from './pages/ComparisonsList';
 import ComparisonCreate from './pages/ComparisonCreate';
 import ComparisonEditPremium from './pages/ComparisonEditPremium';
 import PublicPresentation from './pages/PublicPresentation';
+import Profile from './pages/Profile';
+import Register from './pages/Register';
 import DashboardLayout from './layouts/DashboardLayout';
 import PublicLayout from './layouts/PublicLayout';
 import AuthLayout from './layouts/AuthLayout';
@@ -44,6 +46,14 @@ const App = () => {
                     </AuthLayout>
                 }
             />
+            <Route
+                path="/register"
+                element={
+                    <AuthLayout>
+                        <Register />
+                    </AuthLayout>
+                }
+            />
 
             {/* Private (dashboard shell) */}
             <Route
@@ -63,6 +73,7 @@ const App = () => {
                 <Route path="comparisons/:id/edit" element={<ComparisonEditPremium />} />
                 <Route path="comparisons/:id/presentation" element={<ComparisonPresentation />} />
                 <Route path="home" element={<Home />} />
+                <Route path="profile" element={<Profile />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/app/dashboard" replace />} />

@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Info, ListChecks, PlusCircle, LogOut } from 'lucide-react';
+import { LayoutDashboard, Info, ListChecks, PlusCircle, LogOut, User } from 'lucide-react';
 import clsx from 'clsx';
 
 const navItems = [
     { to: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { to: '/app/profile', label: 'Meu perfil', icon: User },
     { to: '/app/reference', label: 'Informações', icon: Info },
     { to: '/app/comparisons', label: 'Cotações', icon: ListChecks },
     { to: '/app/comparisons/create', label: 'Nova Cotação', icon: PlusCircle },
