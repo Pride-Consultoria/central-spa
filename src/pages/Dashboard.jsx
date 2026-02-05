@@ -125,10 +125,6 @@ export default function Dashboard() {
                         permitindo entender quais segmentos mais aparecem e como anda o pipeline.
                     </p>
                 </div>
-                <div className="dashboard-meta">
-                    <span className="muted">Protegido via /api/v1/me</span>
-                    <span className="muted">Autenticação: Sanctum (cookies)</span>
-                </div>
             </div>
 
             <div className="dashboard-grid">

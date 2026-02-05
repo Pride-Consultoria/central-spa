@@ -11,10 +11,9 @@ function parseCookie(cookieString, name) {
     return cookieString
         .split(';')
         .map((part) => part.trim())
-        .filter((part) => part.startsWith(prefix))
-        .map((part) => part.slice(prefix.length))
-        .map((value) => decodeURIComponent(value))
-        .shift() || null;
+        .find((part) => part.startsWith(prefix))
+        ?.slice(prefix.length)
+        ?.trim() || null;
 }
 
 async function ensureCsrfCookie() {
