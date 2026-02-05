@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Info, ListChecks, PlusCircle, LogOut, User } from 'lucide-react';
 import clsx from 'clsx';
+import { post, setAuthToken } from '../../services/api/client';
 
 const navItems = [
     { to: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -13,6 +14,18 @@ const navItems = [
 
 export default function Sidebar() {
     const items = useMemo(() => navItems, []);
+    const navigate = useNavigate();
+
+    const handleLogout = async () => {
+        try {
+            await post('/auth/logout');
+        } catch (err) {
+            // ignore: backend already expires session even on errors
+        } finally {
+            setAuthToken(null);
+            navigate('/app/login', { replace: true });
+        }
+    };
 
     return (
         <aside className="dash-sidebar">
@@ -37,10 +50,10 @@ export default function Sidebar() {
                 ))}
             </nav>
             <div className="dash-nav__footer">
-                <a href="/app/login" className="dash-nav__item">
+                <button type="button" onClick={handleLogout} className="dash-nav__item">
                     <LogOut size={18} />
                     <span className="hidden lg:inline">Sair</span>
-                </a>
+                </button>
             </div>
         </aside>
     );
