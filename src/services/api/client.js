@@ -1,4 +1,26 @@
-const API_ORIGIN = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+function guessBackendOrigin() {
+    if (typeof window === 'undefined') {
+        return '';
+    }
+
+    const { protocol, hostname } = window.location;
+    const host = hostname.startsWith('app.') ? hostname.replace(/^app\./, '') : hostname;
+    return `${protocol}//${host}`;
+}
+
+function normalizeOrigin(value) {
+    if (!value) {
+        return '';
+    }
+
+    try {
+        return new URL(value).origin;
+    } catch {
+        return value.replace(/\/$/, '');
+    }
+}
+
+const API_ORIGIN = normalizeOrigin(import.meta.env.VITE_API_URL || guessBackendOrigin());
 const WEB_BASE = `${API_ORIGIN || ''}`; // rotas web: login/logout/register e csrf cookie
 const API_BASE = `${API_ORIGIN || ''}/api/v1`; // rotas api
 const CSRF_COOKIE_PATH = `${WEB_BASE}/sanctum/csrf-cookie`;
