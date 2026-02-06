@@ -1,6 +1,7 @@
 const API_ORIGIN = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
-const API_BASE = `${API_ORIGIN || ''}/api/v1`;
-const CSRF_COOKIE_PATH = `${API_ORIGIN || ''}/sanctum/csrf-cookie`;
+const WEB_BASE = `${API_ORIGIN || ''}`; // rotas web: login/logout/register e csrf cookie
+const API_BASE = `${API_ORIGIN || ''}/api/v1`; // rotas api
+const CSRF_COOKIE_PATH = `${WEB_BASE}/sanctum/csrf-cookie`;
 const XSRF_COOKIE_NAME = 'XSRF-TOKEN';
 
 let csrfRequest = null;
@@ -14,6 +15,17 @@ function parseCookie(cookieString, name) {
         .find((part) => part.startsWith(prefix))
         ?.slice(prefix.length)
         ?.trim() || null;
+}
+
+function isWebPath(path) {
+    return (
+        path === '/login' ||
+        path === '/logout' ||
+        path === '/register' ||
+        path.startsWith('/login') ||
+        path.startsWith('/logout') ||
+        path.startsWith('/register')
+    );
 }
 
 async function ensureCsrfCookie() {
@@ -58,14 +70,17 @@ async function request(path, options = {}) {
 
     const xsrfToken = parseCookie(typeof document !== 'undefined' ? document.cookie : '', XSRF_COOKIE_NAME);
 
-    const resp = await fetch(`${API_BASE}${path}`, {
+    const base = isWebPath(path) ? WEB_BASE : API_BASE;
+    const authHeader = authToken && !isWebPath(path) ? { Authorization: `Bearer ${authToken}` } : {};
+
+    const resp = await fetch(`${base}${path}`, {
         method,
         credentials: 'include',
         headers: {
             Accept: 'application/json',
             'Content-Type': 'application/json',
-            ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-            ...(xsrfToken ? { 'X-XSRF-TOKEN': xsrfToken } : {}),
+            ...authHeader,
+            ...(xsrfToken ? { 'X-XSRF-TOKEN': decodeURIComponent(xsrfToken) } : {}),
             ...customHeaders,
         },
         signal,
